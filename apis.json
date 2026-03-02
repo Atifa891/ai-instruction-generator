@@ -2,7 +2,7 @@
   {
     "name": "Zephyr",
     "url": "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
-    "token": "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",
+    "token":"",
     "model": "HuggingFaceH4/zephyr-7b-beta"
   }
 ]
