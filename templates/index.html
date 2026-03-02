@@ -1,0 +1,112 @@
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Instruction Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: white;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 70%;
+            margin: 50px auto;
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        input, textarea, select {
+            width: 80%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: none;
+        }
+
+        button {
+            padding: 12px 25px;
+            margin: 8px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-success { background-color: #2ecc71; color: white; }
+        .btn-danger { background-color: #e74c3c; color: white; }
+
+        button:hover {
+            transform: scale(1.05);
+            opacity: 0.9;
+        }
+
+        hr {
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>AI Instruction Dataset Generator</h1>
+
+<hr>
+
+<h2>1️⃣ Add New API</h2>
+<form action="/add_api" method="post">
+    <input type="text" name="api_name" placeholder="API Name" required>
+    <input type="text" name="api_url" placeholder="API URL" required>
+    <input type="text" name="api_token" placeholder="API Token" required>
+    <input type="text" name="model_name" placeholder="Model Name" required>
+    <button class="btn-primary" type="submit">Add API</button>
+</form>
+
+<hr>
+
+<h2>2️⃣ Upload Dataset</h2>
+<form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" required>
+    <button class="btn-primary" type="submit">Upload Dataset</button>
+</form>
+
+<hr>
+
+<h2>3️⃣ Generate Instructions</h2>
+
+<form action="/generate" method="post">
+
+    <label>Select API:</label><br>
+    <select name="selected_api" required>
+        {% for api in apis %}
+            <option value="{{ api.name }}">{{ api.name }}</option>
+        {% endfor %}
+    </select>
+
+    <textarea name="prompt" placeholder="Write your prompt here..." required></textarea>
+
+    <button class="btn-success" type="submit">Generate Instructions</button>
+</form>
+
+<hr>
+
+<a href="/download">
+    <button class="btn-danger">Download Output JSON</button>
+</a>
+
+</div>
+
+</body>
+</html>

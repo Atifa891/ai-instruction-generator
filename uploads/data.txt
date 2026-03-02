@@ -1,0 +1,4 @@
+Cybersecurity protects networks.
+Encryption secures information.
+Firewalls block attacks.
+Passwords must be strong.
