@@ -89,7 +89,7 @@ def generate():
             return "Selected API not found."
 
         headers = {
-            "Authorization": f"Bearer {selected_api['token']}",
+            "Authorization": f"Bearer {os.getenv('HF_TOKEN')}",
             "Content-Type": "application/json"
         }
 
