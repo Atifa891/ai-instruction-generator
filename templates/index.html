@@ -90,10 +90,8 @@
 
     <label>Select API:</label><br>
     <select name="selected_api" required>
-        {% for api in apis %}
-            <option value="{{ api.name }}">{{ api.name }}</option>
-        {% endfor %}
-    </select>
+    <option value="OpenAI GPT">OpenAI GPT</option>
+</select>
 
     <textarea name="prompt" placeholder="Write your prompt here..." required></textarea>
 
