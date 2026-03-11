@@ -1,8 +1,8 @@
 [
   {
-    "name": "Zephyr",
-    "url": "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
-    "token":"",
-    "model": "HuggingFaceH4/zephyr-7b-beta"
+    "name": "OpenAI GPT",
+    "url": "https://api.openai.com/v1/chat/completions",
+    "token": "",
+    "model": "gpt-4o-mini"
   }
 ]
