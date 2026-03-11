@@ -1,99 +1,64 @@
-import requests
-import json
-import os
 from flask import Flask, render_template, request, send_file
-from dotenv import load_dotenv
-
-load_dotenv()
+import os
+import json
+import pandas as pd
+from openai import OpenAI
 
 app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = "uploads"
-app.config["OUTPUT_FOLDER"] = "outputs"
 
-os.makedirs("uploads", exist_ok=True)
-os.makedirs("outputs", exist_ok=True)
+UPLOAD_FOLDER = "uploads"
+OUTPUT_FOLDER = "outputs"
 
-# Make sure apis.json exists
-if not os.path.exists("apis.json"):
-    with open("apis.json", "w") as f:
-        json.dump([], f)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["OUTPUT_FOLDER"] = OUTPUT_FOLDER
+
+# OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 uploaded_content = ""
 
 
 @app.route("/")
 def index():
-    with open("apis.json", "r") as f:
-        apis = json.load(f)
-    return render_template("index.html", apis=apis)
+    return render_template("index.html")
 
 
 @app.route("/upload", methods=["POST"])
-def upload_file():
+def upload():
     global uploaded_content
+
+    if "file" not in request.files:
+        return "No file uploaded."
+
     file = request.files["file"]
 
-    if not file:
-        return "No file uploaded."
+    if file.filename == "":
+        return "No file selected."
 
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
     file.save(filepath)
 
-    with open(filepath, "r", encoding="utf-8") as f:
-        uploaded_content = f.read()
+    # Read file content
+    if file.filename.endswith(".csv"):
+        df = pd.read_csv(filepath)
+        uploaded_content = df.to_string()
+    else:
+        with open(filepath, "r", encoding="utf-8") as f:
+            uploaded_content = f.read()
 
-    return "Dataset uploaded successfully!"
-
-
-@app.route("/add_api", methods=["POST"])
-def add_api():
-    api_name = request.form["api_name"]
-    api_url = request.form["api_url"]
-    api_token = request.form["api_token"]
-    model_name = request.form["model_name"]
-
-    new_api = {
-        "name": api_name,
-        "url": api_url,
-        "token": api_token,
-        "model": model_name
-    }
-
-    with open("apis.json", "r") as f:
-        apis = json.load(f)
-
-    apis.append(new_api)
-
-    with open("apis.json", "w") as f:
-        json.dump(apis, f, indent=2)
-
-    return "API Added Successfully!"
+    return "Dataset uploaded successfully."
 
 
 @app.route("/generate", methods=["POST"])
 def generate():
     try:
-        selected_api_name = request.form.get("selected_api")
         prompt = request.form.get("prompt")
 
-        if not selected_api_name:
-            return "No API selected."
-
-        # Load APIs
-        with open("apis.json", "r") as f:
-            apis = json.load(f)
-
-        selected_api = next((api for api in apis if api["name"] == selected_api_name), None)
-
-        if not selected_api:
-            return "Selected API not found."
-
-        headers = {
-            "Authorization": f"Bearer {os.getenv('HF_TOKEN')}",
-            "Content-Type": "application/json"
-        }
-
-        global uploaded_content
+        if not prompt:
+            return "No prompt provided."
 
         full_prompt = f"""
 You are a professional instruction dataset generator.
@@ -101,41 +66,38 @@ You are a professional instruction dataset generator.
 Dataset:
 {uploaded_content}
 
-Task:
+User request:
 {prompt}
 
-Return ONLY valid JSON list:
+Generate 5 high-quality instruction-output pairs.
+
+Return the result strictly as JSON:
+
 [
-  {{"instruction":"...","output":"..."}}
+  {{
+    "instruction": "...",
+    "output": "..."
+  }}
 ]
 """
 
-        # OpenAI-compatible chat format (required for Zephyr router)
-        payload = {
-    "inputs": full_prompt,
-    "parameters": {
-        "max_new_tokens": 300,
-        "temperature": 0.7
-    }
-}
-
-
-        response = requests.post(
-            selected_api["url"],
-            headers=headers,
-            json=payload
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You generate instruction-output pairs."},
+                {"role": "user", "content": full_prompt}
+            ],
+            temperature=0.7
         )
 
-        if response.status_code != 200:
-            return f"API Error: {response.text}"
-
-        result = response.json()
+        result = response.choices[0].message.content
 
         output_path = os.path.join(app.config["OUTPUT_FOLDER"], "output.json")
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2)
 
-        return json.dumps(result, indent=2)
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(result)
+
+        return result
 
     except Exception as e:
         return f"System Error: {str(e)}"
