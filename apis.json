@@ -1,7 +1,7 @@
 [
-    {
-        "name": "Hugging Face",
-        "url": "https://api-inference.huggingface.co/models/HuggingFaceH4/zephyr-7b-beta",
-        "token_env": "HF_API_TOKEN"
-    }
+  {
+    "name": "Hugging Face",
+    "url": "https://router.huggingface.co/v1/chat/completions",
+    "token_env": "HF_API_TOKEN"
+  }
 ]

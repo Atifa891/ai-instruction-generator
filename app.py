@@ -33,13 +33,8 @@ def home():
 def generate():
     apis = load_apis()
 
-    # get prompt
     user_prompt = request.form.get("prompt", "").strip()
-
-    # get selected api
     selected_api_name = request.form.get("selected_api", "").strip()
-
-    # get uploaded dataset
     uploaded_file = request.files.get("dataset_file")
 
     if not user_prompt:
@@ -51,18 +46,19 @@ def generate():
     if not uploaded_file or uploaded_file.filename == "":
         return render_template("index.html", apis=apis, result="Please upload a dataset file.")
 
-    # save uploaded dataset
     dataset_path = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
     uploaded_file.save(dataset_path)
 
-    # read dataset content
     try:
         with open(dataset_path, "r", encoding="utf-8") as f:
             dataset_content = f.read()
     except Exception:
-        return render_template("index.html", apis=apis, result="Could not read the uploaded dataset. Please upload a text-based file like .txt or .json.")
+        return render_template(
+            "index.html",
+            apis=apis,
+            result="Could not read the uploaded dataset. Please upload a text-based file like .txt or .json."
+        )
 
-    # find selected api info
     selected_api = None
     for api in apis:
         if api["name"] == selected_api_name:
@@ -83,7 +79,6 @@ def generate():
             result=f"API token not found. Please add {token_env_name} to your .env file or Render Environment Variables."
         )
 
-    # combine dataset + user prompt
     full_prompt = f"""
 You are an AI instruction generator.
 
@@ -104,11 +99,19 @@ Return useful, understandable, and well-organized instructions.
     }
 
     payload = {
-        "inputs": full_prompt,
-        "parameters": {
-            "max_new_tokens": 400,
-            "temperature": 0.7
-        }
+        "model": "HuggingFaceH4/zephyr-7b-beta",
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are an AI instruction generator. Create clear, structured instructions based on the dataset and the user's request."
+            },
+            {
+                "role": "user",
+                "content": full_prompt
+            }
+        ],
+        "max_tokens": 400,
+        "temperature": 0.7
     }
 
     try:
@@ -116,14 +119,8 @@ Return useful, understandable, and well-organized instructions.
         response.raise_for_status()
         data = response.json()
 
-        if isinstance(data, list) and len(data) > 0:
-            generated_text = data[0].get("generated_text", "No output generated.")
-        elif isinstance(data, dict):
-            generated_text = data.get("generated_text", str(data))
-        else:
-            generated_text = str(data)
+        generated_text = data["choices"][0]["message"]["content"]
 
-        # save output to JSON file
         output_data = {
             "dataset_file": uploaded_file.filename,
             "selected_api": selected_api_name,
