@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, send_file
 import os
 import json
 import requests
+import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,6 +22,26 @@ def load_apis():
         with open(APIS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return []
+
+
+def read_dataset_file(file_path):
+    file_ext = os.path.splitext(file_path)[1].lower()
+
+    if file_ext == ".txt":
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+
+    elif file_ext == ".json":
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return json.dumps(data, ensure_ascii=False, indent=2)
+
+    elif file_ext == ".csv":
+        df = pd.read_csv(file_path)
+        return df.to_string(index=False)
+
+    else:
+        raise ValueError("Unsupported file format. Please upload .txt, .json, or .csv files.")
 
 
 @app.route("/")
@@ -50,13 +71,12 @@ def generate():
     uploaded_file.save(dataset_path)
 
     try:
-        with open(dataset_path, "r", encoding="utf-8") as f:
-            dataset_content = f.read()
-    except Exception:
+        dataset_content = read_dataset_file(dataset_path)
+    except Exception as e:
         return render_template(
             "index.html",
             apis=apis,
-            result="Could not read the uploaded dataset. Please upload a text-based file like .txt or .json."
+            result=f"Could not read the uploaded dataset: {str(e)}"
         )
 
     selected_api = None
@@ -91,6 +111,7 @@ User request:
 Task:
 Generate clear, structured instructions based on the dataset and the user's request.
 Return useful, understandable, and well-organized instructions.
+If possible, format the final answer as JSON with instruction, input, and output fields.
 """
 
     headers = {
@@ -123,6 +144,7 @@ Return useful, understandable, and well-organized instructions.
 
         output_data = {
             "dataset_file": uploaded_file.filename,
+            "file_type": os.path.splitext(uploaded_file.filename)[1].lower(),
             "selected_api": selected_api_name,
             "user_prompt": user_prompt,
             "generated_instructions": generated_text
