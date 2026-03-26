@@ -1,111 +1,155 @@
 from flask import Flask, render_template, request, send_file
 import os
 import json
-import pandas as pd
-from openai import OpenAI
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "outputs"
+APIS_FILE = "apis.json"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-app.config["OUTPUT_FOLDER"] = OUTPUT_FOLDER
 
-# OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-uploaded_content = ""
+def load_apis():
+    if os.path.exists(APIS_FILE):
+        with open(APIS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return []
 
 
 @app.route("/")
-def index():
-    return render_template("index.html")
-
-
-@app.route("/upload", methods=["POST"])
-def upload():
-    global uploaded_content
-
-    if "file" not in request.files:
-        return "No file uploaded."
-
-    file = request.files["file"]
-
-    if file.filename == "":
-        return "No file selected."
-
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
-    file.save(filepath)
-
-    # Read file content
-    if file.filename.endswith(".csv"):
-        df = pd.read_csv(filepath)
-        uploaded_content = df.to_string()
-    else:
-        with open(filepath, "r", encoding="utf-8") as f:
-            uploaded_content = f.read()
-
-    return "Dataset uploaded successfully."
+def home():
+    apis = load_apis()
+    return render_template("index.html", apis=apis)
 
 
 @app.route("/generate", methods=["POST"])
 def generate():
+    apis = load_apis()
+
+    # get prompt
+    user_prompt = request.form.get("prompt", "").strip()
+
+    # get selected api
+    selected_api_name = request.form.get("selected_api", "").strip()
+
+    # get uploaded dataset
+    uploaded_file = request.files.get("dataset_file")
+
+    if not user_prompt:
+        return render_template("index.html", apis=apis, result="Please enter a prompt.")
+
+    if not selected_api_name:
+        return render_template("index.html", apis=apis, result="Please select an API.")
+
+    if not uploaded_file or uploaded_file.filename == "":
+        return render_template("index.html", apis=apis, result="Please upload a dataset file.")
+
+    # save uploaded dataset
+    dataset_path = os.path.join(UPLOAD_FOLDER, uploaded_file.filename)
+    uploaded_file.save(dataset_path)
+
+    # read dataset content
     try:
-        prompt = request.form.get("prompt")
+        with open(dataset_path, "r", encoding="utf-8") as f:
+            dataset_content = f.read()
+    except Exception:
+        return render_template("index.html", apis=apis, result="Could not read the uploaded dataset. Please upload a text-based file like .txt or .json.")
 
-        if not prompt:
-            return "No prompt provided."
+    # find selected api info
+    selected_api = None
+    for api in apis:
+        if api["name"] == selected_api_name:
+            selected_api = api
+            break
 
-        full_prompt = f"""
-You are a professional instruction dataset generator.
+    if not selected_api:
+        return render_template("index.html", apis=apis, result="Selected API not found.")
 
-Dataset:
-{uploaded_content}
+    api_url = selected_api["url"]
+    token_env_name = selected_api["token_env"]
+    api_token = os.getenv(token_env_name)
 
-User request:
-{prompt}
-
-Generate 5 high-quality instruction-output pairs.
-
-Return the result strictly as JSON:
-
-[
-  {{
-    "instruction": "...",
-    "output": "..."
-  }}
-]
-"""
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You generate instruction-output pairs."},
-                {"role": "user", "content": full_prompt}
-            ],
-            temperature=0.7
+    if not api_token:
+        return render_template(
+            "index.html",
+            apis=apis,
+            result=f"API token not found. Please add {token_env_name} to your .env file or Render Environment Variables."
         )
 
-        result = response.choices[0].message.content
+    # combine dataset + user prompt
+    full_prompt = f"""
+You are an AI instruction generator.
 
-        output_path = os.path.join(app.config["OUTPUT_FOLDER"], "output.json")
+Dataset:
+{dataset_content}
 
+User request:
+{user_prompt}
+
+Task:
+Generate clear, structured instructions based on the dataset and the user's request.
+Return useful, understandable, and well-organized instructions.
+"""
+
+    headers = {
+        "Authorization": f"Bearer {api_token}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "inputs": full_prompt,
+        "parameters": {
+            "max_new_tokens": 400,
+            "temperature": 0.7
+        }
+    }
+
+    try:
+        response = requests.post(api_url, headers=headers, json=payload)
+        response.raise_for_status()
+        data = response.json()
+
+        if isinstance(data, list) and len(data) > 0:
+            generated_text = data[0].get("generated_text", "No output generated.")
+        elif isinstance(data, dict):
+            generated_text = data.get("generated_text", str(data))
+        else:
+            generated_text = str(data)
+
+        # save output to JSON file
+        output_data = {
+            "dataset_file": uploaded_file.filename,
+            "selected_api": selected_api_name,
+            "user_prompt": user_prompt,
+            "generated_instructions": generated_text
+        }
+
+        output_path = os.path.join(OUTPUT_FOLDER, "output.json")
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write(result)
+            json.dump(output_data, f, ensure_ascii=False, indent=4)
 
-        return result
+        return render_template("index.html", apis=apis, result=generated_text)
 
+    except requests.exceptions.HTTPError as e:
+        return render_template("index.html", apis=apis, result=f"HTTP Error: {str(e)}")
     except Exception as e:
-        return f"System Error: {str(e)}"
+        return render_template("index.html", apis=apis, result=f"System Error: {str(e)}")
 
 
 @app.route("/download")
 def download():
-    return send_file("outputs/output.json", as_attachment=True)
+    output_path = os.path.join(OUTPUT_FOLDER, "output.json")
+
+    if os.path.exists(output_path):
+        return send_file(output_path, as_attachment=True)
+    return "No output file found."
 
 
 if __name__ == "__main__":

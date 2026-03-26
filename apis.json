@@ -1,8 +1,7 @@
 [
-  {
-    "name": "OpenAI GPT",
-    "url": "https://api.openai.com/v1/chat/completions",
-    "token": "",
-    "model": "gpt-4o-mini"
-  }
+    {
+        "name": "Hugging Face",
+        "url": "https://router.huggingface.co/hf-inference/models/HuggingFaceH4/zephyr-7b-beta",
+        "token_env": "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"
+    }
 ]

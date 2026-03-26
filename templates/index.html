@@ -1,9 +1,8 @@
-
-
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Instruction Generator</title>
     <style>
         body {
@@ -17,94 +16,107 @@
 
         .container {
             width: 70%;
-            margin: 50px auto;
+            margin: 40px auto;
             background: rgba(255,255,255,0.1);
             padding: 30px;
             border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
         }
 
-        input, textarea, select {
-            width: 80%;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 8px;
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        textarea, select, input[type="file"] {
+            width: 90%;
+            padding: 12px;
+            margin-top: 12px;
+            border-radius: 10px;
             border: none;
+            font-size: 16px;
+        }
+
+        textarea {
+            height: 180px;
+            resize: none;
         }
 
         button {
+            margin-top: 20px;
             padding: 12px 25px;
-            margin: 8px;
             font-size: 16px;
-            border-radius: 8px;
             border: none;
+            border-radius: 10px;
+            background: #00c6ff;
+            color: white;
             cursor: pointer;
-            transition: 0.3s;
         }
-
-        .btn-primary { background-color: #3498db; color: white; }
-        .btn-success { background-color: #2ecc71; color: white; }
-        .btn-danger { background-color: #e74c3c; color: white; }
 
         button:hover {
-            transform: scale(1.05);
-            opacity: 0.9;
+            background: #0072ff;
         }
 
-        hr {
-            border: 1px solid rgba(255,255,255,0.2);
+        .result {
+            margin-top: 30px;
+            background: rgba(255,255,255,0.15);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: left;
+            white-space: pre-wrap;
+        }
+
+        a.download-link {
+            display: inline-block;
+            margin-top: 15px;
+            color: #ffd166;
+            font-weight: bold;
+            text-decoration: none;
+        }
+
+        a.download-link:hover {
+            text-decoration: underline;
+        }
+
+        label {
+            display: block;
+            margin-top: 18px;
+            font-weight: bold;
+            text-align: left;
+            width: 90%;
+            margin-left: auto;
+            margin-right: auto;
         }
     </style>
 </head>
-
 <body>
+    <div class="container">
+        <h1>AI Instruction Generator</h1>
 
-<div class="container">
+        <form action="/generate" method="POST" enctype="multipart/form-data">
+            <label for="dataset_file">Upload Dataset</label>
+            <input type="file" name="dataset_file" id="dataset_file" required>
 
-<h1>AI Instruction Dataset Generator</h1>
+            <label for="selected_api">Choose API</label>
+            <select name="selected_api" id="selected_api" required>
+                <option value="">-- Select API --</option>
+                {% for api in apis %}
+                    <option value="{{ api.name }}">{{ api.name }}</option>
+                {% endfor %}
+            </select>
 
-<hr>
+            <label for="prompt">Write Your Prompt</label>
+            <textarea name="prompt" id="prompt" placeholder="Enter your prompt here..." required></textarea>
 
-<h2>1️⃣ Add New API</h2>
-<form action="/add_api" method="post">
-    <input type="text" name="api_name" placeholder="API Name" required>
-    <input type="text" name="api_url" placeholder="API URL" required>
-    <input type="text" name="api_token" placeholder="API Token" required>
-    <input type="text" name="model_name" placeholder="Model Name" required>
-    <button class="btn-primary" type="submit">Add API</button>
-</form>
+            <button type="submit">Generate</button>
+        </form>
 
-<hr>
-
-<h2>2️⃣ Upload Dataset</h2>
-<form action="/upload" method="post" enctype="multipart/form-data">
-    <input type="file" name="file" required>
-    <button class="btn-primary" type="submit">Upload Dataset</button>
-</form>
-
-<hr>
-
-<h2>3️⃣ Generate Instructions</h2>
-
-<form action="/generate" method="post">
-
-    <label>Select API:</label><br>
-    <select name="selected_api" required>
-    <option value="OpenAI GPT">OpenAI GPT</option>
-</select>
-
-    <textarea name="prompt" placeholder="Write your prompt here..." required></textarea>
-
-    <button class="btn-success" type="submit">Generate Instructions</button>
-</form>
-
-<hr>
-
-<a href="/download">
-    <button class="btn-danger">Download Output JSON</button>
-</a>
-
-</div>
-
+        {% if result %}
+            <div class="result">
+                <h2>Generated Instructions</h2>
+                <p>{{ result }}</p>
+                <a class="download-link" href="/download">Download Output (JSON)</a>
+            </div>
+        {% endif %}
+    </div>
 </body>
 </html>
