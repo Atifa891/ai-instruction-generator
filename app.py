@@ -25,23 +25,22 @@ def load_apis():
 
 
 def read_dataset_file(file_path):
-    file_ext = os.path.splitext(file_path)[1].lower()
+    ext = os.path.splitext(file_path)[1].lower()
 
-    if file_ext == ".txt":
+    if ext == ".txt":
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
 
-    elif file_ext == ".json":
+    if ext == ".json":
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return json.dumps(data, ensure_ascii=False, indent=2)
 
-    elif file_ext == ".csv":
+    if ext == ".csv":
         df = pd.read_csv(file_path)
         return df.to_string(index=False)
 
-    else:
-        raise ValueError("Unsupported file format. Please upload .txt, .json, or .csv files.")
+    raise ValueError("Unsupported file format. Please upload .txt, .json, or .csv")
 
 
 @app.route("/")
@@ -73,11 +72,7 @@ def generate():
     try:
         dataset_content = read_dataset_file(dataset_path)
     except Exception as e:
-        return render_template(
-            "index.html",
-            apis=apis,
-            result=f"Could not read the uploaded dataset: {str(e)}"
-        )
+        return render_template("index.html", apis=apis, result=f"Could not read dataset: {str(e)}")
 
     selected_api = None
     for api in apis:
@@ -111,7 +106,7 @@ User request:
 Task:
 Generate clear, structured instructions based on the dataset and the user's request.
 Return useful, understandable, and well-organized instructions.
-If possible, format the final answer as JSON with instruction, input, and output fields.
+Prefer JSON with fields: instruction, input, output.
 """
 
     headers = {
@@ -120,23 +115,23 @@ If possible, format the final answer as JSON with instruction, input, and output
     }
 
     payload = {
-        "model": "HuggingFaceH4/zephyr-7b-beta",
+        "model": "meta-llama/Llama-3.1-8B-Instruct",
         "messages": [
             {
                 "role": "system",
-                "content": "You are an AI instruction generator. Create clear, structured instructions based on the dataset and the user's request."
+                "content": "You are an AI instruction generator. Create clear, structured instructions from the dataset and the user's request."
             },
             {
                 "role": "user",
                 "content": full_prompt
             }
         ],
-        "max_tokens": 400,
-        "temperature": 0.7
+        "max_tokens": 700,
+        "temperature": 0.4
     }
 
     try:
-        response = requests.post(api_url, headers=headers, json=payload)
+        response = requests.post(api_url, headers=headers, json=payload, timeout=120)
         response.raise_for_status()
         data = response.json()
 
@@ -146,6 +141,7 @@ If possible, format the final answer as JSON with instruction, input, and output
             "dataset_file": uploaded_file.filename,
             "file_type": os.path.splitext(uploaded_file.filename)[1].lower(),
             "selected_api": selected_api_name,
+            "model": payload["model"],
             "user_prompt": user_prompt,
             "generated_instructions": generated_text
         }
@@ -157,7 +153,13 @@ If possible, format the final answer as JSON with instruction, input, and output
         return render_template("index.html", apis=apis, result=generated_text)
 
     except requests.exceptions.HTTPError as e:
-        return render_template("index.html", apis=apis, result=f"HTTP Error: {str(e)}")
+        error_body = ""
+        try:
+            error_body = response.text
+        except Exception:
+            pass
+        return render_template("index.html", apis=apis, result=f"HTTP Error: {str(e)} | Details: {error_body}")
+
     except Exception as e:
         return render_template("index.html", apis=apis, result=f"System Error: {str(e)}")
 
@@ -165,7 +167,6 @@ If possible, format the final answer as JSON with instruction, input, and output
 @app.route("/download")
 def download():
     output_path = os.path.join(OUTPUT_FOLDER, "output.json")
-
     if os.path.exists(output_path):
         return send_file(output_path, as_attachment=True)
     return "No output file found."
