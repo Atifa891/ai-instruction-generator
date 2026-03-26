@@ -24,23 +24,34 @@ def load_apis():
     return []
 
 
+# ✅ FIXED DATASET READER (VERY IMPORTANT)
 def read_dataset_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == ".txt":
         with open(file_path, "r", encoding="utf-8") as f:
-            return f.read()
+            content = f.read()
+        return content[:3000]  # limit size
 
-    if ext == ".json":
+    elif ext == ".json":
         with open(file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return json.dumps(data, ensure_ascii=False, indent=2)
+        content = json.dumps(data, ensure_ascii=False, indent=2)
+        return content[:3000]
 
-    if ext == ".csv":
+    elif ext == ".csv":
         df = pd.read_csv(file_path)
+
+        # ✅ LIMIT DATA (VERY IMPORTANT)
+        df = df.head(20)
+
+        if len(df.columns) > 5:
+            df = df.iloc[:, :5]
+
         return df.to_string(index=False)
 
-    raise ValueError("Unsupported file format. Please upload .txt, .json, or .csv")
+    else:
+        raise ValueError("Unsupported file format (.txt, .json, .csv only)")
 
 
 @app.route("/")
@@ -72,7 +83,7 @@ def generate():
     try:
         dataset_content = read_dataset_file(dataset_path)
     except Exception as e:
-        return render_template("index.html", apis=apis, result=f"Could not read dataset: {str(e)}")
+        return render_template("index.html", apis=apis, result=f"Dataset error: {str(e)}")
 
     selected_api = None
     for api in apis:
@@ -81,7 +92,7 @@ def generate():
             break
 
     if not selected_api:
-        return render_template("index.html", apis=apis, result="Selected API not found.")
+        return render_template("index.html", apis=apis, result="API not found.")
 
     api_url = selected_api["url"]
     token_env_name = selected_api["token_env"]
@@ -91,22 +102,23 @@ def generate():
         return render_template(
             "index.html",
             apis=apis,
-            result=f"API token not found. Please add {token_env_name} to your .env file or Render Environment Variables."
+            result=f"API token not found. Add {token_env_name} in .env or Render."
         )
 
+    # ✅ SHORT PROMPT (VERY IMPORTANT)
     full_prompt = f"""
-You are an AI instruction generator.
-
-Dataset:
+Dataset sample:
 {dataset_content}
 
 User request:
 {user_prompt}
 
-Task:
-Generate clear, structured instructions based on the dataset and the user's request.
-Return useful, understandable, and well-organized instructions.
-Prefer JSON with fields: instruction, input, output.
+Generate ONLY 3 instruction-output pairs in JSON format.
+Each must include:
+- instruction
+- input
+- output
+Keep answer short.
 """
 
     headers = {
@@ -117,17 +129,11 @@ Prefer JSON with fields: instruction, input, output.
     payload = {
         "model": "meta-llama/Llama-3.1-8B-Instruct",
         "messages": [
-            {
-                "role": "system",
-                "content": "You are an AI instruction generator. Create clear, structured instructions from the dataset and the user's request."
-            },
-            {
-                "role": "user",
-                "content": full_prompt
-            }
+            {"role": "system", "content": "You are an AI instruction generator."},
+            {"role": "user", "content": full_prompt}
         ],
-        "max_tokens": 700,
-        "temperature": 0.4
+        "max_tokens": 300,
+        "temperature": 0.3
     }
 
     try:
@@ -139,26 +145,17 @@ Prefer JSON with fields: instruction, input, output.
 
         output_data = {
             "dataset_file": uploaded_file.filename,
-            "file_type": os.path.splitext(uploaded_file.filename)[1].lower(),
-            "selected_api": selected_api_name,
-            "model": payload["model"],
-            "user_prompt": user_prompt,
             "generated_instructions": generated_text
         }
 
         output_path = os.path.join(OUTPUT_FOLDER, "output.json")
         with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(output_data, f, ensure_ascii=False, indent=4)
+            json.dump(output_data, f, indent=4)
 
         return render_template("index.html", apis=apis, result=generated_text)
 
     except requests.exceptions.HTTPError as e:
-        error_body = ""
-        try:
-            error_body = response.text
-        except Exception:
-            pass
-        return render_template("index.html", apis=apis, result=f"HTTP Error: {str(e)} | Details: {error_body}")
+        return render_template("index.html", apis=apis, result=f"HTTP Error: {str(e)}")
 
     except Exception as e:
         return render_template("index.html", apis=apis, result=f"System Error: {str(e)}")
@@ -167,8 +164,10 @@ Prefer JSON with fields: instruction, input, output.
 @app.route("/download")
 def download():
     output_path = os.path.join(OUTPUT_FOLDER, "output.json")
+
     if os.path.exists(output_path):
         return send_file(output_path, as_attachment=True)
+
     return "No output file found."
 
 
