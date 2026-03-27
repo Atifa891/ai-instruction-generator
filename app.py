@@ -37,32 +37,34 @@ def upload():
     filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
     file.save(filepath)
 
-    # Read dataset
-    if file.filename.endswith(".csv"):
-        df = pd.read_csv(filepath)
-        uploaded_content = df.to_string(index=False)
-    else:
-        with open(filepath, "r", encoding="utf-8") as f:
-            uploaded_content = f.read()
+    try:
+        if file.filename.lower().endswith(".csv"):
+            df = pd.read_csv(filepath)
+            uploaded_content = df.to_string(index=False)
+        else:
+            with open(filepath, "r", encoding="utf-8") as f:
+                uploaded_content = f.read()
 
-    return "✅ Dataset uploaded successfully!"
+        return "✅ Dataset uploaded successfully!"
+
+    except Exception as e:
+        return f"Upload Error: {str(e)}"
 
 
-# 🔥 Local AI-like generator (no API)
-def generate_local_pairs(text, max_pairs=10):
+def generate_local_pairs(text: str, max_pairs: int = 10) -> list[dict]:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     pairs = []
 
-    for i, line in enumerate(lines[:max_pairs], start=1):
+    for line in lines[:max_pairs]:
         pairs.append({
             "instruction": f"Explain the cybersecurity concept: {line}",
-            "output": f"{line} is an important concept in cybersecurity. It helps protect systems, data, and users from potential threats and attacks."
+            "output": f"{line} is an important concept in cybersecurity. It helps users understand threats, protection methods, and safe practices for securing systems and information."
         })
 
     if not pairs:
         pairs.append({
-            "instruction": "Explain the dataset topic.",
-            "output": "The dataset contains cybersecurity-related information useful for training AI models."
+            "instruction": "Explain the main topic of the uploaded dataset.",
+            "output": "The uploaded dataset contains cybersecurity-related information that can be transformed into instruction-output pairs for AI training."
         })
 
     return pairs
@@ -79,4 +81,30 @@ def generate():
 
     try:
         result = generate_local_pairs(uploaded_content, max_pairs=10)
-    
+
+        output_path = os.path.join(app.config["OUTPUT_FOLDER"], "output.json")
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, ensure_ascii=False)
+
+        return Response(
+            json.dumps(result, indent=2, ensure_ascii=False),
+            content_type="application/json; charset=utf-8"
+        )
+
+    except Exception as e:
+        return f"System Error: {str(e)}"
+
+
+@app.route("/download")
+def download():
+    output_path = os.path.join(app.config["OUTPUT_FOLDER"], "output.json")
+
+    if not os.path.exists(output_path):
+        return "❌ No output file found. Please generate data first."
+
+    return send_file(output_path, as_attachment=True)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
