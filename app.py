@@ -78,4 +78,5 @@ def generate():
         return "❌ Please upload a dataset first."
 
     try:
-        result = generate_local_pairs(uploaded_content, max
+        result = generate_local_pairs(uploaded_content, max_pairs=10)
+    
