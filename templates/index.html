@@ -1,103 +1,81 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Instruction Generator</title>
+
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Arial;
             background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
             color: white;
             text-align: center;
-            margin: 0;
-            padding: 0;
         }
+
         .container {
             width: 70%;
-            margin: 40px auto;
+            margin: 50px auto;
             background: rgba(255,255,255,0.1);
             padding: 30px;
             border-radius: 15px;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
         }
-        textarea, select, input[type="file"] {
-            width: 90%;
-            padding: 12px;
-            margin-top: 12px;
-            border-radius: 10px;
+
+        input, textarea {
+            width: 80%;
+            padding: 10px;
+            margin: 10px;
+            border-radius: 8px;
             border: none;
-            font-size: 16px;
         }
-        textarea {
-            height: 180px;
-            resize: none;
-        }
+
         button {
-            margin-top: 20px;
             padding: 12px 25px;
-            font-size: 16px;
+            margin: 10px;
+            border-radius: 8px;
             border: none;
-            border-radius: 10px;
-            background: #00c6ff;
-            color: white;
             cursor: pointer;
         }
-        .result {
-            margin-top: 30px;
-            background: rgba(255,255,255,0.15);
-            padding: 20px;
-            border-radius: 10px;
-            text-align: left;
-            white-space: pre-wrap;
-        }
-        a.download-link {
-            display: inline-block;
-            margin-top: 15px;
-            color: #ffd166;
-            font-weight: bold;
-            text-decoration: none;
-        }
-        label {
-            display: block;
-            margin-top: 18px;
-            font-weight: bold;
-            text-align: left;
-            width: 90%;
-            margin-left: auto;
-            margin-right: auto;
-        }
+
+        .btn1 { background: #3498db; }
+        .btn2 { background: #2ecc71; }
+        .btn3 { background: #e74c3c; }
     </style>
 </head>
+
 <body>
-    <div class="container">
-        <h1>AI Instruction Generator</h1>
 
-        <form action="/generate" method="POST" enctype="multipart/form-data">
-            <label for="dataset_file">Upload Dataset</label>
-            <input type="file" name="dataset_file" id="dataset_file" required>
+<div class="container">
 
-            <label for="selected_api">Choose API</label>
-            <select name="selected_api" id="selected_api" required>
-                <option value="">-- Select API --</option>
-                {% for api in apis %}
-                    <option value="{{ api.name }}">{{ api.name }}</option>
-                {% endfor %}
-            </select>
+<h1>AI Instruction Dataset Generator</h1>
 
-            <label for="prompt">Write Your Prompt</label>
-            <textarea name="prompt" id="prompt" placeholder="Enter your prompt here..." required></textarea>
+<hr>
 
-            <button type="submit">Generate</button>
-        </form>
+<h2>1️⃣ Upload Dataset</h2>
 
-        {% if result %}
-            <div class="result">
-                <h2>Generated Instructions</h2>
-                <p>{{ result }}</p>
-                <a class="download-link" href="/download">Download Output (JSON)</a>
-            </div>
-        {% endif %}
-    </div>
+<form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" required>
+    <br>
+    <button class="btn1">Upload</button>
+</form>
+
+<hr>
+
+<h2>2️⃣ Generate Instructions</h2>
+
+<form action="/generate" method="post">
+    <textarea name="prompt" placeholder="Write your prompt..." required></textarea>
+    <br>
+    <button class="btn2">Generate</button>
+</form>
+
+<hr>
+
+<h2>3️⃣ Download Result</h2>
+
+<a href="/download">
+    <button class="btn3">Download JSON</button>
+</a>
+
+</div>
+
 </body>
 </html>
